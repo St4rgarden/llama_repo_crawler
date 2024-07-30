@@ -1,11 +1,9 @@
 import os
 from dotenv import load_dotenv
-from langchain_voyageai import VoyageAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAI
 from langchain.chains import RetrievalQA
 from helpers import get_repo_config, load_documents_from_repo
+from embeddings import create_embeddings_and_vectorstore
 
 # Load environment variables
 load_dotenv()
@@ -39,25 +37,11 @@ def main():
     for i, doc in enumerate(all_documents):
         print(f"Document {i + 1} content: {doc.page_content[:100]}...") # Print first 100 characters
 
-    # Split documents
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)
-    splits = text_splitter.split_documents(all_documents)
-    print(f"Total splits after text splitting: {len(splits)}")
+    # Create embeddings and vectorstore
+    vectorstore = create_embeddings_and_vectorstore(all_documents, voyage_api_key)
 
-    if not splits:
-        print("No text splits generated. Using original documents.")
-        splits = all_documents
-
-    # Create embeddings using VoyageAI
-    embeddings = VoyageAIEmbeddings(voyage_api_key=voyage_api_key, model="voyage-code-2")
-
-    # Create FAISS index
-    try:
-        texts = [doc.page_content for doc in splits]
-        vectorstore = FAISS.from_texts(texts, embeddings)
-        print("FAISS index created successfully")
-    except Exception as e:
-        print(f"Error creating FAISS index: {e}")
+    if not vectorstore:
+        print("Failed to create vector store. Exiting.")
         return
 
     # Create QA chain
